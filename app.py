@@ -3,6 +3,7 @@ Peanut mold screening backend API service.
 """
 
 import base64
+import binascii
 import os
 import tempfile
 
@@ -119,7 +120,7 @@ def detect():
         temp_path = write_temp_image(image_bytes)
         return jsonify(predict(temp_path))
 
-    except (ValueError, base64.binascii.Error):
+    except (ValueError, binascii.Error):
         return jsonify({"error": "无效的Base64图片数据"}), 400
     except Exception as exc:
         import traceback
