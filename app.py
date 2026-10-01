@@ -44,7 +44,7 @@ def get_model():
     global _model
     if _model is None:
         import torch
-        import torch.nn as nn
+        from torch import nn
         from torchvision import models
 
         print("正在加载模型...")
@@ -137,11 +137,6 @@ def detect():
 
     except (ValueError, binascii.Error):
         return jsonify({"error": "无效的Base64图片数据"}), 400
-    except Exception as exc:
-        import traceback
-
-        traceback.print_exc()
-        return jsonify({"error": str(exc)}), 500
     finally:
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
@@ -173,5 +168,5 @@ def index():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
