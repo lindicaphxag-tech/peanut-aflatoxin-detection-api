@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  static-checks:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -21,11 +21,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install linter
-        run: python -m pip install ruff
+      - name: Install lightweight test dependencies
+        run: python -m pip install Flask flask-cors pytest ruff
 
       - name: Lint
-        run: ruff check app.py
+        run: ruff check app.py tests
 
       - name: Compile
-        run: python -m py_compile app.py
+        run: python -m py_compile app.py tests/test_api.py
+
+      - name: Test
+        run: pytest -q
