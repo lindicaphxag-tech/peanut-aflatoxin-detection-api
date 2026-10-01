@@ -7,14 +7,8 @@ import binascii
 import os
 import tempfile
 
-import cv2
-import numpy as np
-import torch
-import torch.nn as nn
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from PIL import Image
-from torchvision import models, transforms
 
 app = Flask(__name__)
 CORS(app)
@@ -22,36 +16,55 @@ CORS(app)
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "best_model_resnet18.pth")
 CLASS_NAMES = ["正常", "发霉不长毛", "发霉长毛"]
 
-transform = transforms.Compose(
-    [
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225],
-        ),
-    ]
-)
-
 _model = None
+_transform = None
+
+
+def get_transform():
+    """Build and cache the image preprocessing pipeline."""
+    global _transform
+    if _transform is None:
+        from torchvision import transforms
+
+        _transform = transforms.Compose(
+            [
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                ),
+            ]
+        )
+    return _transform
 
 
 def get_model():
-    """Load and cache the classifier."""
+    """Load and cache the classifier on first inference."""
     global _model
     if _model is None:
+        import torch
+        import torch.nn as nn
+        from torchvision import models
+
         print("正在加载模型...")
-        _model = models.resnet18(weights=None)
-        num_ftrs = _model.fc.in_features
-        _model.fc = nn.Linear(num_ftrs, 3)
-        _model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
-        _model.eval()
+        model = models.resnet18(weights=None)
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Linear(num_ftrs, 3)
+        model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
+        model.eval()
+        _model = model
         print("✅ 模型加载成功")
     return _model
 
 
 def preprocess_image(image_path):
     """Apply foreground masking and model preprocessing."""
+    import cv2
+    import numpy as np
+    from PIL import Image
+
+    transform = get_transform()
     img_bgr = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_COLOR)
     if img_bgr is None:
         img = Image.open(image_path).convert("RGB")
@@ -73,6 +86,8 @@ def preprocess_image(image_path):
 
 def predict(image_path):
     """Run 3-class image classification."""
+    import torch
+
     model = get_model()
     tensor = preprocess_image(image_path)
 
@@ -134,7 +149,13 @@ def detect():
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "model": "ResNet18-3class"})
+    return jsonify(
+        {
+            "status": "ok",
+            "model": "ResNet18-3class",
+            "model_loaded": _model is not None,
+        }
+    )
 
 
 @app.route("/", methods=["GET"])
@@ -149,9 +170,6 @@ def index():
             },
         }
     )
-
-
-get_model()
 
 
 if __name__ == "__main__":
