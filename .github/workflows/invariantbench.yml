@@ -1,0 +1,45 @@
+name: InvariantBench semantic review
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "**/*.py"
+      - ".github/workflows/invariantbench.yml"
+  pull_request:
+    branches: [master]
+    paths:
+      - "**/*.py"
+
+permissions:
+  contents: read
+
+jobs:
+  semantic-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - id: invariantbench
+        name: Run commit-pinned InvariantBench
+        uses: lindicaphxag-tech/lindicaphxag-tech@59e76a5dff9ae8bb8ae93f46d0108a244d50a66e
+        with:
+          context: 8
+
+      - name: Upload semantic review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: invariantbench-semantic-review
+          path: |
+            ${{ steps.invariantbench.outputs.report-path }}
+            ${{ steps.invariantbench.outputs.sarif-path }}
+          if-no-files-found: error
+          retention-days: 30
